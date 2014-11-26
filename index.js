@@ -56,17 +56,6 @@ JamaPassthrough.prototype.setupServer = function() {
 
 }
 
-JamaPassthrough.prototype.setupClient = function() {
-    var options = {
-        url: this.getRestEndpoint(),
-        headers: {
-            accept: 'application/json'
-        }
-    }
-
-    this.restClient = restify.createJsonClient(options);
-}
-
 JamaPassthrough.prototype.respond = function(req, res, next) {
     var method = (req.method || 'get').toLowerCase();
 
@@ -88,7 +77,6 @@ JamaPassthrough.prototype.start = function() {
 	if (!this.getRestEndpoint()){
 		console.warn("Warning: No rest endpoint has been set");
 	}
-    this.setupClient();
 	this.setupServer();
 }
 
