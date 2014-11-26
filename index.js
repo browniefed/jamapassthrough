@@ -1,5 +1,6 @@
 var restify = require('restify'),
-    request = require('request');
+    request = require('request'),
+    qs = require('querystring');
 
 var JamaPassthrough = function(options) {
 	this.setRestEndpoint(options.restEndpoint);
@@ -38,6 +39,8 @@ JamaPassthrough.prototype.setupServer = function() {
         origins: this.getAllowedCORS()
     }));
     this.server.use(restify.authorizationParser());
+    this.server.use(restify.bodyParser());
+    this.server.use(restify.queryParser());
 
 	//This defaults to accepting ALL connections.
 	//In production this should definitely be limited to your production environment
@@ -66,8 +69,11 @@ JamaPassthrough.prototype.setupClient = function() {
 
 JamaPassthrough.prototype.respond = function(req, res, next) {
     var method = (req.method || 'get').toLowerCase();
+
+    var query = qs.stringify(req.query);
     request({
-        url: this.getRestEndpoint() + req.url,
+        url: this.getRestEndpoint() + req.url + (query && '?' + query || ''),
+        body: qs.parse(req.body || ''),
         method: (req.method || 'GET'),
         json: true,
         headers: {
