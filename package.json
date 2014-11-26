@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/browniefed/jamapassthrough",
   "dependencies": {
+    "request": "^2.48.0",
     "restify": "^2.8.3"
   }
 }

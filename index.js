@@ -1,4 +1,5 @@
-var restify = require('restify');
+var restify = require('restify'),
+    request = require('request');
 
 var JamaPassthrough = function(restEndpoint, allowedCORS) {
 	this.setRestEndpoint(restEndpoint);
@@ -16,29 +17,18 @@ JamaPassthrough.prototype.getRestEndpoint = function() {
 JamaPassthrough.prototype.setAllowedCORS = function(allowedCORS) {
 	this.allowedCORS = allowedCORS;
 }
-
-JamaPassthrough.prototype.getJsonClient = function(headers) {
-	var options = {
-	  url: this.getRestEndpoint(),
-	  version: 'v1',
-	  headers: headers || {}
-	};
-
-	return restify.createJsonClient(options);
+JamaPassthrough.prototype.getAllowedCORS = function(allowedCORS) {
+    return this.allowedCORS;
 }
 JamaPassthrough.prototype.setupServer = function() {
 
 	this.server = restify.createServer();
 
+    this.server.use(restify.CORS({
+        origins: this.getAllowedCORS()
+    }));
 	//This defaults to accepting ALL connections.
 	//In production this should definitely be limited to your production environment
-	this.server.use(restify.CORS({
-		origins: this.allowedCORS
-	}));
-
-	this.server.use(restify.bodyParser());
-
-
 	this.server.get(/(.*)/, this.respond.bind(this));
 	this.server.put(/(.*)/, this.respond.bind(this));
 	this.server.post(/(.*)/, this.respond.bind(this));
@@ -46,18 +36,14 @@ JamaPassthrough.prototype.setupServer = function() {
 	this.server.listen(9999, function() {
 		console.log('started');
 	});
+
+    this.server.on('MethodNotAllowed', unknownMethodHandler);
+
 }
 
 JamaPassthrough.prototype.respond = function(req, res, next) {
-	//Get req path
-	//Use client ot respond
-	//respond
 	var method = (req.method || 'get').toLowerCase();
-	var client = this.getJsonClient(req.headers);
-	client[method](req._path, function(error, request, response) {
-		res.send('Hey');
-	})
-
+    res({});
 }
 
 JamaPassthrough.prototype.start = function() {
@@ -67,4 +53,27 @@ JamaPassthrough.prototype.start = function() {
 
 	this.setupServer();
 }
+
+/*
+    Make it so restify handles preflight OPTION requests.
+    Just accept eveything initially we can limit ourselves via restify.CORS()
+*/
+function unknownMethodHandler(req, res) {
+  if (req.method.toLowerCase() === 'options') {
+      console.log('received an options method request');
+    var allowHeaders = ['Accept', 'Accept-Version', 'Content-Type', 'Api-Version', 'Origin', 'X-Requested-With', 'Authorization']; // added Origin & X-Requested-With & **Authorization**
+
+    if (res.methods.indexOf('OPTIONS') === -1) res.methods.push('OPTIONS');
+
+    res.header('Access-Control-Allow-Credentials', true);
+    res.header('Access-Control-Allow-Headers', allowHeaders.join(', '));
+    res.header('Access-Control-Allow-Methods', res.methods.join(', '));
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+
+    return res.send(200);
+  }
+  else
+    return res.send(new restify.MethodNotAllowedError());
+}
+
 module.exports = JamaPassthrough;
