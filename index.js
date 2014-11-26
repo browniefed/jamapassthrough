@@ -1,9 +1,10 @@
 var restify = require('restify'),
     request = require('request');
 
-var JamaPassthrough = function(restEndpoint, allowedCORS) {
-	this.setRestEndpoint(restEndpoint);
-	this.setAllowedCORS(allowedCORS || ['*'])
+var JamaPassthrough = function(options) {
+	this.setRestEndpoint(options.restEndpoint);
+	this.setAllowedCORS(options.allowedCORS || ['*']);
+    this.setPort(options.port || 9999);
 }
 
 JamaPassthrough.prototype.setRestEndpoint = function(restEndpoint) {
@@ -13,6 +14,15 @@ JamaPassthrough.prototype.setRestEndpoint = function(restEndpoint) {
 JamaPassthrough.prototype.getRestEndpoint = function() {
 	return this.restEndpoint;
 }
+
+JamaPassthrough.prototype.setPort = function(port) {
+    this.port = port;
+}
+
+JamaPassthrough.prototype.getPort = function() {
+    return this.port;
+}
+
 
 JamaPassthrough.prototype.setAllowedCORS = function(allowedCORS) {
 	this.allowedCORS = allowedCORS;
@@ -27,13 +37,15 @@ JamaPassthrough.prototype.setupServer = function() {
     this.server.use(restify.CORS({
         origins: this.getAllowedCORS()
     }));
+    this.server.use(restify.authorizationParser());
+
 	//This defaults to accepting ALL connections.
 	//In production this should definitely be limited to your production environment
 	this.server.get(/(.*)/, this.respond.bind(this));
 	this.server.put(/(.*)/, this.respond.bind(this));
 	this.server.post(/(.*)/, this.respond.bind(this));
 	this.server.del(/(.*)/, this.respond.bind(this));
-	this.server.listen(9999, function() {
+	this.server.listen(this.getPort(), function() {
 		console.log('started');
 	});
 
@@ -41,16 +53,36 @@ JamaPassthrough.prototype.setupServer = function() {
 
 }
 
+JamaPassthrough.prototype.setupClient = function() {
+    var options = {
+        url: this.getRestEndpoint(),
+        headers: {
+            accept: 'application/json'
+        }
+    }
+
+    this.restClient = restify.createJsonClient(options);
+}
+
 JamaPassthrough.prototype.respond = function(req, res, next) {
-	var method = (req.method || 'get').toLowerCase();
-    res({});
+    var method = (req.method || 'get').toLowerCase();
+    request({
+        url: this.getRestEndpoint() + req.url,
+        method: (req.method || 'GET'),
+        json: true,
+        headers: {
+            authorization: req.headers.authorization
+        }
+    }, function(jamaErr, jamaRes, jamaBody) {
+        res.send(jamaRes.statusCode, jamaBody);
+    })
 }
 
 JamaPassthrough.prototype.start = function() {
 	if (!this.getRestEndpoint()){
 		console.warn("Warning: No rest endpoint has been set");
 	}
-
+    this.setupClient();
 	this.setupServer();
 }
 
@@ -60,7 +92,6 @@ JamaPassthrough.prototype.start = function() {
 */
 function unknownMethodHandler(req, res) {
   if (req.method.toLowerCase() === 'options') {
-      console.log('received an options method request');
     var allowHeaders = ['Accept', 'Accept-Version', 'Content-Type', 'Api-Version', 'Origin', 'X-Requested-With', 'Authorization']; // added Origin & X-Requested-With & **Authorization**
 
     if (res.methods.indexOf('OPTIONS') === -1) res.methods.push('OPTIONS');
