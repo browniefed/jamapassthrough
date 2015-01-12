@@ -57,13 +57,17 @@ JamaPassthrough.prototype.setupServer = function() {
 }
 
 JamaPassthrough.prototype.respond = function(req, res, next) {
-    var method = (req.method || 'get').toLowerCase();
+    var method = (req.method || 'get').toUpperCase();
 
+    var body = req.body;
+    if (method == 'GET') {
+        body = qs.parse(req.body || '')
+    }
     var query = qs.stringify(req.query);
     request({
         url: this.getRestEndpoint() + req.url + (query && '?' + query || ''),
-        body: qs.parse(req.body || ''),
-        method: (req.method || 'GET'),
+        body: body,
+        method: method,
         json: true,
         headers: {
             authorization: req.headers.authorization

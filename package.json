@@ -1,6 +1,6 @@
 {
   "name": "jama-passthrough",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Enabling CORS on Jama by writing a simple pass through",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/browniefed/jamapassthrough.git"
   },
-  "author": "",
+  "author": "Jason Brown",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/browniefed/jamapassthrough/issues"
