@@ -63,9 +63,9 @@ JamaPassthrough.prototype.respond = function(req, res, next) {
     if (method == 'GET') {
         body = qs.parse(req.body || '')
     }
-    var query = qs.stringify(req.query);
+
     request({
-        url: this.getRestEndpoint() + req.url + (query && '?' + query || ''),
+        url: this.getRestEndpoint() + req.url,
         body: body,
         method: method,
         json: true,
