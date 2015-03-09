@@ -1,11 +1,16 @@
 var restify = require('restify'),
     request = require('request'),
-    qs = require('querystring');
+    qs = require('querystring'),
+    uuid = require('node-uuid'),
+    _ = require('lodash');
 
 var JamaPassthrough = function(options) {
 	this.setRestEndpoint(options.restEndpoint);
 	this.setAllowedCORS(options.allowedCORS || ['*']);
     this.setPort(options.port || 9999);
+    
+    this.appAuths = {};
+
 }
 
 JamaPassthrough.prototype.setRestEndpoint = function(restEndpoint) {
@@ -44,6 +49,29 @@ JamaPassthrough.prototype.setupServer = function() {
 
 	//This defaults to accepting ALL connections.
 	//In production this should definitely be limited to your production environment
+
+    this.server.post('/auth', function(req, res) {
+        var guid = uuid.v4();
+        var appName = req.headers['x-auth-app'];
+        
+        if (!appName) {
+            res.send(404, 'Please provide an application name in the headers as x-auth-app');
+            return;
+        }
+
+        if ( !req.headers.authorization) {
+            res.send(404, 'Please provide appropriate header authorization');
+            return;
+        }
+
+        this.appAuths[appName] = {
+            authtoken: req.headers.authorization,
+            token: guid
+        };
+        res.send(guid);
+
+    }.bind(this));
+
 	this.server.get(/(.*)/, this.respond.bind(this));
 	this.server.put(/(.*)/, this.respond.bind(this));
 	this.server.post(/(.*)/, this.respond.bind(this));
@@ -64,13 +92,22 @@ JamaPassthrough.prototype.respond = function(req, res, next) {
         body = qs.parse(req.body || '')
     }
 
+    var auth = _.find(this.appAuths, function(auth) {
+        return auth.token == req.headers['x-auth-token'];
+    });
+
+    if (!auth) {
+        res.send(404, 'No auth for token found.');
+    }
+
+
     request({
         url: this.getRestEndpoint() + req.url,
         body: body,
         method: method,
         json: true,
         headers: {
-            authorization: req.headers.authorization
+            authorization: auth
         }
     }, function(jamaErr, jamaRes, jamaBody) {
         res.send(jamaRes.statusCode, jamaBody);
